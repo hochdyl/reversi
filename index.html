@@ -1,0 +1,574 @@
+<!DOCTYPE HTML>
+<head>
+    <title>JavaScript Jeu</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <script>
+    
+    var NbrCases = 8 ; //nbr de case par coté
+    var CouleurTapis = '#AAAAAA';   
+    var CouleurPionBlanc = '#FFFFFF';
+    var CouleurPionNoir = '#000000';
+
+    var context = null ;       // contexte 2d du canvas unique
+    var canvasTailleCase=80;   // taille d'une case (en pixel)
+
+    thePlayer = null ;         // le joueur à jouer
+    theGame= null;             // l'état du jeu
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////// Fonctions calcul /////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    window.onload = function() { // Au chargement affichage
+        canvas = document.getElementById('myCanvas');
+        canvas.width = canvasTailleCase*NbrCases;
+        canvas.height = canvasTailleCase*NbrCases;  // Taille du canvas automatique
+
+        if(!canvas)
+        {
+            alert("Impossible de récupérer le canvas");
+            return;
+        }
+        context = canvas.getContext('2d');
+        if(!context)
+        {
+            alert("Impossible de récupérer le context du canvas");
+            return;
+        }
+        initGame();
+    }
+
+    function initGame() { // Initialisation d'une partie
+        thePlayer = 1 ;   // Le joueur noir commence
+        theGame = new Array() ;
+        for (var i=0 ; i < NbrCases ; i++ ) {
+            theGame[i] = new Array();
+            for (var j=0 ; j < NbrCases ; j++ ) {
+                theGame[i][j]=0;  // Création du tableau rempli de 0
+            }
+        }
+ 
+        theGame[3][3]=1;  // Pions de départ
+        theGame[3][4]=2;
+        theGame[4][3]=2;
+        theGame[4][4]=1;
+     
+        tracerDamier();  // Affichage du damier
+
+        canvas.addEventListener('mousedown',mousePos,false); // Sur un clic du joueur
+    }
+
+    function mousePos(event) { // Récupère les cordonnées x,y lors du clique de la souris
+        var x = event.x;
+        var y = event.y;
+
+        x -= canvas.offsetLeft;
+        y -= canvas.offsetTop;
+
+        coordX = x / canvasTailleCase;
+        i = Math.floor(coordX);
+        coordY =  y / canvasTailleCase;
+        j = Math.floor(coordY);
+
+        gestionJeu(i,j); // Gestion du jeu selon la ou le joueur a cliqué
+    }
+
+    function gestionJeu(i,j) { // Fonction principale qui gère l'état du jeu
+        if (theGame[i][j]==0) { // Sur un clic case vide
+
+        switch ( thePlayer ) {
+            case 1 : adverse = 2 ; break ;  // Qui est le joueur adverse au moment du clic
+            case 2 : adverse = 1  ; break ;
+        }
+
+            if (verifCoup(i,j,adverse)==true) { // Si un coup est possible
+
+                var indicationDuTour=document.getElementById("indicationTour");
+
+                if (thePlayer==1) {
+                    effectuerChangements(i,j,adverse); 
+                    indicationDuTour.innerHTML = "TOUR DU JOUEUR : BLANC"; 
+                    indicationDuTour.classList.add('blanc');
+                    indicationDuTour.classList.remove('noir');
+                    thePlayer=adverse;
+                } 
+                else if (thePlayer==2) {
+                    effectuerChangements(i,j,adverse); 
+                    indicationDuTour.innerHTML = "TOUR DU JOUEUR : NOIR";
+                    indicationDuTour.classList.remove('blanc');
+                    indicationDuTour.classList.add('noir');
+                    thePlayer=adverse; 
+                }
+                compterPoints(); // Compte les points acutalisés et les affiches
+            }
+        }
+    }
+
+    function verifCoup(caseI,caseJ,adverse) { // Verifie si un coup est possible dans n'importe quel direction
+
+        var coupPossible=false; // Initialisé sur un coup impossible
+
+        for( var i = caseI+1 ; i < NbrCases ; i++ ) { // VERIFICATION A DROITE
+            if (theGame[i][caseJ]==adverse) {
+                if (i==7) { // Si on sort du tableau
+                    break;
+                }
+                else { // Si on ne sort pas du tableau
+                    if (theGame[i+1][caseJ]==thePlayer) { 
+                        coupPossible=true; 
+                        break;
+                    }    
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        for( var i = caseI-1 ; i >= 0 ; i-- ) { // VERIFICATION A GAUCHE
+            if (theGame[i][caseJ]==adverse) { // LA MEME CHOSE QUE POUR L'EXEMPLE DE DROITE
+                if (i==0) {
+                    break;
+                }
+                else {
+                    if (theGame[i-1][caseJ]==thePlayer) {
+                        coupPossible=true;
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        for( var j = caseJ+1 ; j < NbrCases ; j++ ) { // VERIFICATION BAS
+            if (theGame[caseI][j]==adverse) {
+                if (j==7) {
+                    break;
+                }
+                else {
+                    if (theGame[caseI][j+1]==thePlayer) {
+                        coupPossible=true;
+                        break;      
+                    }              
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        for( var j = caseJ-1 ; j >= 0 ; j-- ) { // VERIFICATION HAUT
+            if (theGame[caseI][j]==adverse) {
+                if (j==0) {
+                    break;
+                } 
+                else {
+                    if (theGame[caseI][j-1]==thePlayer) {
+                        coupPossible=true;
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        var jBoucle=0; // Gestion de la hauteur pour les diagonales
+
+        for( var i = caseI+1 ; i < NbrCases ; i++ ) { // VERIFICATION BAS DROITE
+            jBoucle=jBoucle+1; 
+            if (theGame[i][caseJ+jBoucle]==adverse) {
+                if (i==7 || jBoucle==7) {
+                    break;
+                }
+                else {
+                    if (theGame[i+1][caseJ+jBoucle+1]==thePlayer) {
+                        coupPossible=true;
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+
+        jBoucle=0; // Reinitialisation pour la diagonale suivante
+        for( var i = caseI-1 ; i > 0 ; i-- ) { // VERIFICATION BAS GAUCHE
+            jBoucle=jBoucle+1; 
+            if (theGame[i][caseJ+jBoucle]==adverse) {
+                if (i==0 || jBoucle==7) {
+                    break;
+                }
+                else {
+                    if (theGame[i-1][caseJ+jBoucle+1]==thePlayer) {
+                        coupPossible=true;
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        jBoucle=0
+        for( var i = caseI-1 ; i > 0 ; i-- ) { // VERIFICATION HAUT GAUCHE
+            jBoucle=jBoucle+1;
+            if (theGame[i][caseJ-jBoucle]==adverse) {
+                if (i==0 || jBoucle==0) {
+                    break;
+                }
+                else {
+                    if (theGame[i-1][caseJ-jBoucle-1]==thePlayer) {
+                        coupPossible=true;
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        jBoucle=0;
+        for( var i = caseI+1 ; i < NbrCases ; i++ ) { // VERIFICATION HAUT DROITE
+            jBoucle=jBoucle+1; 
+            if (theGame[i][caseJ-jBoucle]==adverse) {
+                if (i==7 || jBoucle==0) {
+                    break;
+                }
+                else {
+                    if (theGame[i+1][caseJ-jBoucle-1]==thePlayer) {
+                        coupPossible=true;
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+        
+
+        if (coupPossible==true) { // Renvoyer le resultat true si au moins une direction possible sinon false
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    function effectuerChangements(caseI,caseJ,adverse) { // Change les données de theGame dans une direction possible
+
+        switch ( thePlayer ) {
+            case 1 : coulPion = CouleurPionNoir ; break ;
+            case 2 : coulPion = CouleurPionBlanc  ; break ;
+        }
+
+        // La case devient un pion du joueur
+        theGame[caseI][caseJ]=thePlayer; 
+        tracerRond(caseI,caseJ,coulPion);
+
+        for( var i = caseI+1 ; i < NbrCases ; i++ ) { // DROITE
+            if (theGame[i][caseJ]==adverse) {
+                if (i==7) {
+                    break;
+                }
+                else {
+                    if (theGame[i+1][caseJ]==thePlayer) {
+                        for( i=caseI+1 ; i < NbrCases ; i++ ) {
+                            if (theGame[i][caseJ]==adverse) {
+                                theGame[i][caseJ]=thePlayer;
+                                tracerRond(i,caseJ,coulPion);
+                            }
+                            else {
+                                break;
+                            }
+                        }   
+                        break;
+                    }
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        for( var i = caseI-1 ; i >= 0 ; i-- ) { // GAUCHE
+            if (theGame[i][caseJ]==adverse) {
+                if (i==0) {
+                    break;
+                }
+                else {
+                    if (theGame[i-1][caseJ]==thePlayer) {
+                        for( i=caseI-1 ; i < NbrCases ; i-- ) {
+                            if (theGame[i][caseJ]==adverse) {
+                                theGame[i][caseJ]=thePlayer;
+                                tracerRond(i,caseJ,coulPion);
+                            }
+                            else {
+                                break;
+                            }
+                        }   
+                        break;
+                    }                 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        for( var j = caseJ+1 ; j < NbrCases ; j++ ) { // BAS
+            if (theGame[caseI][j]==adverse) {
+                if (j==7) {
+                    break;
+                }
+                else {
+                    if (theGame[caseI][j+1]==thePlayer) {
+                        for( j=caseJ+1 ; j < NbrCases ; j++ ) {
+                            if (theGame[caseI][j]==adverse) {
+                                theGame[caseI][j]=thePlayer;
+                                tracerRond(caseI,j,coulPion);
+                            }
+                            else {
+                                break;
+                            }
+                        }   
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        for( var j = caseJ-1 ; j >= 0 ; j-- ) { // HAUT
+            if (theGame[caseI][j]==adverse) {
+                if (j==0) {
+                    break;
+                }
+                else {
+                    if (theGame[caseI][j-1]==thePlayer) {
+                        for( j=caseJ-1 ; j >= 0 ; j-- ) {
+                            if (theGame[caseI][j]==adverse) {
+                                theGame[caseI][j]=thePlayer;
+                                tracerRond(caseI,j,coulPion);
+                            }
+                            else {
+                                break;
+                            }
+                        }   
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        var jBoucle=0; // Gestion de la hauteur pour les diagonales
+
+        for( var i = caseI+1 ; i < NbrCases ; i++ ) { // VERIFICATION BAS DROITE
+            jBoucle=jBoucle+1;
+            if (theGame[i][caseJ+jBoucle]==adverse) {
+                if (i==7 || jBoucle==7) {
+                    break;
+                }
+                else {
+                    if (theGame[i+1][caseJ+jBoucle+1]==thePlayer) {
+                        jBoucle=0;
+                        for( i=caseI+1 ; i < NbrCases ; i++ ) {
+                            jBoucle=jBoucle+1;
+                            if (theGame[i][caseJ+jBoucle]==adverse) {
+                                theGame[i][caseJ+jBoucle]=thePlayer;
+                                tracerRond(i,caseJ+jBoucle,coulPion);
+                            }
+                            else {
+                                break;
+                            }
+                        }   
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        jBoucle=0;
+        for( var i = caseI-1 ; i > 0 ; i-- ) { // VERIFICATION BAS GAUCHE
+            jBoucle=jBoucle+1;  
+            if (theGame[i][caseJ+jBoucle]==adverse) {
+                if (i==0 || jBoucle==7) {
+                    break;
+                }
+                else {
+                    if (theGame[i-1][caseJ+jBoucle+1]==thePlayer) {
+                        jBoucle=0;
+                        for( i=caseI-1 ; i > 0 ; i-- ) {
+                            jBoucle=jBoucle+1;
+                            if (theGame[i][caseJ+jBoucle]==adverse) {
+                                theGame[i][caseJ+jBoucle]=thePlayer;
+                                tracerRond(i,caseJ+jBoucle,coulPion);
+                            }
+                            else {
+                                break;
+                            }
+                        }   
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        jBoucle=0
+        for( var i = caseI-1 ; i > 0 ; i-- ) { // VERIFICATION HAUT GAUCHE
+            jBoucle=jBoucle+1;
+            if (theGame[i][caseJ-jBoucle]==adverse) {
+                if (i==0 || jBoucle==0) {
+                    break;
+                }
+                else {
+                    if (theGame[i-1][caseJ-jBoucle-1]==thePlayer) {
+                        jBoucle=0;
+                        for( i=caseI-1 ; i > 0 ; i-- ) {
+                            jBoucle=jBoucle+1;
+                            if (theGame[i][caseJ-jBoucle]==adverse) {
+                                theGame[i][caseJ-jBoucle]=thePlayer;
+                                tracerRond(i,caseJ-jBoucle,coulPion);  
+                            }
+                            else {
+                                break;
+                            }
+                        }   
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+
+        jBoucle=0;
+        for( var i = caseI+1 ; i < NbrCases ; i++ ) { // VERIFICATION HAUT DROITE
+            jBoucle=jBoucle+1; 
+            if (theGame[i][caseJ-jBoucle]==adverse) {
+                if (i==7 || jBoucle==0) {
+                    break;
+                }
+                else {
+                    if (theGame[i+1][caseJ-jBoucle-1]==thePlayer) {
+                        jBoucle=0;
+                        for( i=caseI+1 ; i < NbrCases ; i++ ) {
+                            jBoucle=jBoucle+1;
+                            if (theGame[i][caseJ-jBoucle]==adverse) {
+                                theGame[i][caseJ-jBoucle]=thePlayer;
+                                tracerRond(i,caseJ-jBoucle,coulPion);  
+                            }
+                            else {
+                                break;
+                            }
+                        }   
+                        break;
+                    } 
+                }
+            }   
+            else {
+                break;
+            }
+        }
+    
+    }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////// Fonctions graphiques /////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    function compterPoints() { // Compte les points
+        var pionNoir=0, pionBlanc=0;
+
+        for( var i = 0 ; i < NbrCases ; i++ ) {
+            for( var j = 0 ; j < NbrCases ; j++ ) {
+                if (theGame[i][j]==1) {
+                    pionNoir=pionNoir+1;
+                } 
+                else if (theGame[i][j]==2) {
+                    pionBlanc=pionBlanc+1;
+                }
+            }
+        }
+        document.getElementById("pointsJ1").innerHTML = pionNoir;
+        document.getElementById("pointsJ2").innerHTML = pionBlanc;
+    }
+
+    function tracerDamier() {  // Trace tout le damier
+        for( var i = 0 ; i < NbrCases ; i++ ) { // Trace toutes les cases du tableau
+            for( var j = 0 ; j < NbrCases ; j++ ) {
+                tracerCase(i,j,CouleurTapis); 
+
+                switch ( theGame[i][j] ) {
+                    case 0 : coulPion = null ; break ;
+                    case 1 : coulPion = CouleurPionNoir ; break ;
+                    case 2 : coulPion = CouleurPionBlanc  ; break ;
+                }
+                if (coulPion) {
+                    tracerRond(i,j,coulPion);
+                }
+            }
+        }
+    }
+
+    function tracerCase(x,y,color) { // Tracer un carré en positions x y avec couleur
+        context.beginPath();
+        context.fillStyle = color;
+        context.rect(x*canvasTailleCase, y*canvasTailleCase, canvasTailleCase, canvasTailleCase);
+        context.fill();
+        context.stroke();
+        context.closePath();
+    }
+ 
+    function tracerRond(x,y,color) { // Tracer un cercle en position x y avec couleur
+        context.beginPath();
+        context.fillStyle = color;
+        context.arc(x*canvasTailleCase+canvasTailleCase*0.5,y*canvasTailleCase+canvasTailleCase*0.5, 
+                    canvasTailleCase*0.4,0, Math.PI*2);
+        context.fill();
+        context.stroke();//On trace seulement les lignes.
+        context.closePath();
+    }
+
+    </script>
+
+</head>
+
+<body>
+    <main>
+        <p class='title noir' id='indicationTour'>TOUR DU JOUEUR : NOIR</p>
+        <canvas id="myCanvas" style="border:1px solid #000000;">
+            Message pour les navigateurs ne supportant pas encore canvas.
+        </canvas>
+        <aside class='title' id='pointsContainer'>
+            <label>POINTS</label><br/>
+            <label class='noir' id='pointsJ1'>2</label><label class='points noir'>•</label><br/>
+            <label class='blanc' id='pointsJ2'>2</label><label class='points blanc'>•</label>
+        </aside>
+    </main>
+    
+        
+    </aside>
+</body>
